@@ -48,6 +48,11 @@ const converter = new showdown.Converter();
 let promptToRetry = null;
 let uniqueIdToRetry = null;
 
+function Counter(){
+    this.val = 0;
+}
+const counter = new Counter();
+
 sessionStorage.clear();
 
 const submitButton = document.getElementById('submit-button');
@@ -175,7 +180,7 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
     saveConversation(jsonString)
     let integerKeys = [];
     let messages= [];
-    for (let i = 0; i < sessionStorage.length; i++) {
+    for (let i = 0; i < counter.val; i++) {
         messages.push(JSON.parse(sessionStorage.getItem(i)));
         console.log(i)
         console.log(messages)
@@ -257,12 +262,6 @@ document.addEventListener("DOMContentLoaded", function(){
  *
  */
 
-
-function Counter(){
-    this.val = 0;
-}
-
-var counter = new Counter();
 
 function saveConversation(json){
     sessionStorage.setItem(counter.val, json)
