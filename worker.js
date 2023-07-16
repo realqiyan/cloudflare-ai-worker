@@ -1,4 +1,4 @@
-import template from './chat.html';
+import template from './template.html';
 
 async function openAI(model, messages, apiKey) {
   const apiURL = 'https://api.openai.com/v1/chat/completions';
