@@ -116,7 +116,6 @@ async function regenerateGPTResult() {
 }
 
 async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
-
     const prompt = _promptToRetry ?? promptInput.textContent;
     if (isGeneratingResponse || !prompt) {
         return;
@@ -141,7 +140,6 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
     for (let i = 0; i < counter.val; i++) {
         messages.push(JSON.parse(sessionStorage.getItem(i)));
     }
-
     try {
         const model = modelSelect.value;
         const response = await fetch(API_URL + 'api', {
