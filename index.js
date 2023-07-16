@@ -27,7 +27,6 @@ async function openAI(model, messages, apiKey) {
 
 export default {
   async fetch(request, env) {
-
     // 安全检查
     const auth = request.headers.get('Authorization');
     if (!auth || auth !== `Basic ${env.TOKEN}`) {
@@ -36,7 +35,7 @@ export default {
         { headers: { 'Content-Type': 'text/html','WWW-Authenticate': 'Basic realm="Login Required"' }, status: 401 }
       );
     }
-
+    // 处理页面请求
     if(request.method == "GET"){
       const body = template.toString();
       return new Response(body, {
@@ -48,9 +47,9 @@ export default {
       return new Response("");
     }
 
+    // 处理api请求
     const body = await request.text();
     const reqJson = JSON.parse(body)
-
     return openAI(reqJson.model,reqJson.messages,`${env.OPENAI_KEY}`);
   }
 };
