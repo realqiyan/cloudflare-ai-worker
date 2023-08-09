@@ -1,6 +1,6 @@
 import template from './template.html';
 
-async function openAI(model, messages, apiKey) {
+async function openAI(model, messages, apiKey, env) {
   const apiURL = 'https://api.openai.com/v1/chat/completions';
   const response = await fetch(apiURL, {
     method: 'POST',
@@ -15,10 +15,25 @@ async function openAI(model, messages, apiKey) {
       temperature: 0.1
     })
   });
+
   if (!response.ok) {
     return new Response(await response.text(), { status: 400});
   }
+  
   const resp = await response.json();
+
+  const storeKey = Date.now().toString();
+  const storeVal = {
+    "request":messages,
+    "response":resp
+  };
+  if (env.ChatRecordKV){
+    await env.ChatRecordKV.put(storeKey, JSON.stringify(storeVal));
+  }
+  if (env.ChatRecordR2){
+    await env.ChatRecordR2.put(storeKey, JSON.stringify(storeVal));
+  }
+
   return new Response(resp['choices'][0]['message']['content'].toString());
 }
 
@@ -63,6 +78,6 @@ export default {
     // 处理api请求
     const body = await request.text();
     const reqJson = JSON.parse(body)
-    return openAI(reqJson.model,reqJson.messages,`${env.OPENAI_KEY}`);
+    return openAI(reqJson.model,reqJson.messages,`${env.OPENAI_KEY}`,env);
   }
 };
