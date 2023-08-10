@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>GPT</title>
 <link rel="shortcut icon" href="#"/>
 <style type="text/css">
@@ -10,7 +12,6 @@ html,body{height:100%}body{background-color:rgba(68,70,84,1.0);display:flex;flex
 .common-button {color: white;border: none;background: #10A37F;border-radius: 4px;padding: 10px 20px;cursor: pointer;}
 </style>
 <link rel="stylesheet" href="https://cdn.staticfile.org/highlight.js/11.7.0/styles/default.min.css">
-<meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body>
 <div id="response-list">
@@ -22,6 +23,7 @@ html,body{height:100%}body{background-color:rgba(68,70,84,1.0);display:flex;flex
         </button>
     </div>
     <button id="clear-button" class="common-button">Clear</button>
+    <button id="recover-button" class="common-button">Recover</button>
     <div id="model-select-container">
         <label for="model-select">Select model:</label>
         <select id="model-select">
@@ -37,29 +39,46 @@ html,body{height:100%}body{background-color:rgba(68,70,84,1.0);display:flex;flex
 <script src="https://cdn.staticfile.org/highlight.js/11.7.0/highlight.min.js"></script>
 <script src="https://cdn.staticfile.org/showdown/2.1.0/showdown.min.js"></script>
 <script type="text/javascript">
+function padZero(num, length = 2) {
+  return String(num).padStart(length, '0');
+}
+function getCurrentTime() {
+  var date = new Date();
+  var year = date.getFullYear();
+  var month = date.getMonth() + 1;
+  var day = date.getDate();
+  var hour = date.getHours();
+  var minute = date.getMinutes();
+  var second = date.getSeconds();
+  var millisecond = date.getMilliseconds();
+  return `${year}${padZero(month)}${padZero(day)}${padZero(hour)}${padZero(minute)}${padZero(second)}${padZero(millisecond, 3)}`;
+}
+function generateUniqueId() {
+    const timestamp = getCurrentTime();
+    const randomStr = Math.floor(Math.random()*1e8).toString(16);
+    return `id-${timestamp}-${randomStr}`;
+}
+function Counter(){
+    this.val = 0;
+    this.chatUniqueId = generateUniqueId();
+}
+
 const API_URL = '/';
 const converter = new showdown.Converter();
 let promptToRetry = null;
 let uniqueIdToRetry = null;
-function Counter(){
-    this.val = 0;
-}
-const counter = new Counter();
 sessionStorage.clear();
 const submitButton = document.getElementById('submit-button');
 const regenerateResponseButton = document.getElementById('regenerate-response-button');
 const promptInput = document.getElementById('prompt-input');
 const modelSelect = document.getElementById('model-select');
 const responseList = document.getElementById('response-list');
+const clearButton = document.getElementById('clear-button');
+const recoverButton = document.getElementById('recover-button');
 
 let isGeneratingResponse = false;
 let loadInterval = null;
-function generateUniqueId() {
-    const timestamp = Date.now();
-    const randomNumber = Math.random();
-    const hexadecimalString = randomNumber.toString(16);
-    return `id-${timestamp}-${hexadecimalString}`;
-}
+let counter = new Counter();
 
 function addResponse(selfFlag, prompt) {
     const uniqueId = generateUniqueId();
@@ -73,10 +92,8 @@ function addResponse(selfFlag, prompt) {
     responseList.scrollTop = responseList.scrollHeight;
     return uniqueId;
 }
-
 function loader(element) {
     element.textContent = ''
-
     loadInterval = setInterval(() => {
         element.textContent += '.';
         if (element.textContent === '....') {
@@ -84,18 +101,15 @@ function loader(element) {
         }
     }, 300);
 }
-
 function setErrorForResponse(element, message) {
     element.innerHTML = message;
     element.style.color = 'rgb(200, 0, 0)';
 }
-
 function setRetryResponse(prompt, uniqueId) {
     promptToRetry = prompt;
     uniqueIdToRetry = uniqueId;
     regenerateResponseButton.style.display = 'flex';
 }
-
 async function regenerateGPTResult() {
     try {
         await getGPTResult(promptToRetry, uniqueIdToRetry)
@@ -104,7 +118,6 @@ async function regenerateGPTResult() {
         regenerateResponseButton.classList.remove("loading");
     }
 }
-
 async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
     const prompt = _promptToRetry ?? promptInput.textContent;
     if (isGeneratingResponse || !prompt) {
@@ -120,37 +133,40 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
     const responseElement = document.getElementById(uniqueId);
     loader(responseElement);
     isGeneratingResponse = true;
-    let jsonString = JSON.stringify({
-        role:"user",
-        content:prompt
-    })
-    saveConversation(jsonString)
     let integerKeys = [];
     let messages= [];
     for (let i = 0; i < counter.val; i++) {
         messages.push(JSON.parse(sessionStorage.getItem(i)));
     }
+    // 添加当前请求参数
+    let currReq = {role:"user", content:prompt};
+    messages.push(currReq);
+
     try {
         const model = modelSelect.value;
+        const chatUniqueId = counter.chatUniqueId;
         const response = await fetch(API_URL + 'api', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages,
-                model
+                model,
+                chatUniqueId
             })
         });
         if (!response.ok) {
             setRetryResponse(prompt, uniqueId);
             setErrorForResponse(responseElement, `HTTP Error: ${await response.text()}`);
             return;
-        }
+        } 
+        // 请求成功后存储记录
+        saveConversation(JSON.stringify(currReq));
+        // 记录返回记录
         const responseText = await response.text();
-        let jsonString = JSON.stringify({
+        saveConversation(JSON.stringify({
             role:"assistant",
             content:responseText
-        })
-        saveConversation(jsonString)
+        }));
         responseElement.innerHTML = converter.makeHtml(responseText.trim());
         promptToRetry = null;
         uniqueIdToRetry = null;
@@ -168,6 +184,59 @@ async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
         clearInterval(loadInterval);
     }
 }
+function saveConversation(json){
+    sessionStorage.setItem(counter.val, json)
+    counter.val += 1;
+}
+function clearSession(){
+    sessionStorage.clear();
+    counter = new Counter();
+    responseList.innerHTML = '';
+}
+async function recoverSession(chatUniqueId){
+    if (!chatUniqueId.startsWith("id-")){
+        return;
+    }
+    try {
+        const chatResp = await fetch(API_URL + 'session/' + chatUniqueId, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (!chatResp.ok) {
+            return;
+        } 
+        // 记录返回记录
+        const json = await chatResp.json();
+        clearSession();
+        // 恢复request会话
+        const { request, response } = json;
+        request.push({
+            "role": response.choices[0].message.role,
+            "content": response.choices[0].message.content
+        });
+        request.forEach((message) => {
+            const { role, content } = message;
+            const prompt = `<div>${content}</div>`;
+            const uniqueId = addResponse(role === "user", prompt);
+            const responseElement = document.getElementById(uniqueId);
+            responseElement.innerHTML = converter.makeHtml(content.trim());
+            saveConversation(JSON.stringify(message));
+        });
+        responseList.scrollTop = responseList.scrollHeight;
+        hljs.highlightAll();
+        counter.chatUniqueId = chatUniqueId;
+    } catch (err) {
+    }
+}
+
+clearButton.addEventListener('click', clearSession);
+recoverButton.addEventListener("click", () => {
+    if(!promptInput.textContent){
+        return;
+    }
+    recoverSession(promptInput.textContent);
+    promptInput.textContent = '';
+});
 submitButton.addEventListener("click", () => {
     getGPTResult();
 });
@@ -176,16 +245,6 @@ regenerateResponseButton.addEventListener("click", () => {
 });
 document.addEventListener("DOMContentLoaded", function(){
     promptInput.focus();
-});
-function saveConversation(json){
-    sessionStorage.setItem(counter.val, json)
-    counter.val += 1;
-}
-const clearButton = document.getElementById('clear-button');
-clearButton.addEventListener('click', () => {
-  sessionStorage.clear();
-  counter.val = 0;
-  responseList.innerHTML = '';
 });
 </script>
 </body>
