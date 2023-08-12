@@ -45,6 +45,16 @@ async function session(request, env) {
   const url = new URL(request.url);
   const chatUniqueId = url.pathname.slice("/session/".length);
   if (env.ChatRecordR2){
+    if (chatUniqueId == "all"){
+      const queryOptions = {
+        limit: 500,
+        prefix: "id-",
+      }
+      const objects = await env.ChatRecordR2.list(queryOptions);
+      return new Response(JSON.stringify(objects), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     const object = await env.ChatRecordR2.get(chatUniqueId);
     if (object != null) {
       return new Response(object.body, {
