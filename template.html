@@ -3,7 +3,7 @@
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>GPT</title>
+        <title>AI</title>
         <link rel="shortcut icon" href="#" />
         <style type="text/css">
             html,body{height:100%}
@@ -20,7 +20,7 @@
             #response-list .response-container .prompt-content{background:transparent !important;color:white;padding:0 !important}
             #response-list .response-container .prompt-content *{white-space:pre-wrap}
             #response-list .response-container .prompt-content p:first-child{margin-top:0}
-            .chatgpt-response{background-color:rgba(68,70,84,1)}
+            .chatai-response{background-color:rgba(68,70,84,1)}
             .my-question{background-color:rgba(52,53,65,1)}
             #input-container{display:flex;align-items:center;justify-content:space-between;padding:10px;background-color:rgba(64,65,79,1);border-color:rgba(32,33,35,.5);border-radius:5px;margin-top:10px}
             #prompt-input{flex-grow:1;padding:10px;border-radius:5px;min-height:20px;color:white;overflow:auto}
@@ -39,8 +39,8 @@
             .hljs-deletion,.hljs-number,.hljs-quote,.hljs-selector-class,.hljs-selector-id,.hljs-string,.hljs-template-tag,.hljs-type{color:#df3079 !important}
             .hljs-addition,.hljs-built_in,.hljs-bullet,.hljs-code{color:#e9950c !important}
             .hljs-link,.hljs-operator,.hljs-regexp,.hljs-selector-attr,.hljs-selector-pseudo,.hljs-symbol,.hljs-template-variable,.hljs-variable{color:white !important}
-            .GPT-icon{font-weight:bold;color:#00B4D9;white-space:nowrap}
-            .User-icon{font-weight:bold;white-space:nowrap}
+            .ai-icon{font-weight:bold;color:#00B4D9;white-space:nowrap}
+            .user-icon{font-weight:bold;white-space:nowrap}
             .common-button{color:white;border:none;background:#10A37F;border-radius:4px;padding:10px 20px;cursor:pointer}
         </style>
         <link rel="stylesheet" href="https://cdn.staticfile.org/highlight.js/11.7.0/styles/default.min.css">
@@ -58,7 +58,8 @@
             <div id="model-select-container" class="select-container">
                 <label for="model-select">Select model:</label>
                 <select id="model-select">
-                    <option value="gpt-4-1106-preview" selected>gpt-4-1106-preview</option>
+                    <option value="geminipro" selected>geminipro</option>
+                    <option value="gpt-4-1106-preview">gpt-4-1106-preview</option>
                     <option value="gpt-4">gpt-4</option>
                     <option value="gpt-3.5-turbo-16k">gpt-3.5-turbo-16k</option>
                     <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
@@ -127,8 +128,8 @@
             function addResponse(selfFlag, prompt) {
                 const uniqueId = generateUniqueId();
                 const html = `
-                        <div class="response-container ${selfFlag ? 'my-question' : 'chatgpt-response'}">
-                            <div class="${selfFlag ? 'User' : 'GPT'}-icon">${selfFlag ? 'User' : 'GPT'}: </div>
+                        <div class="response-container ${selfFlag ? 'my-question' : 'chatai-response'}">
+                            <div class="${selfFlag ? 'user' : 'ai'}-icon">${selfFlag ? 'User' : 'AI'}: </div>
                             <div class="prompt-content" id="${uniqueId}">${prompt}</div>
                         </div>
                     `
@@ -154,15 +155,15 @@
                 uniqueIdToRetry = uniqueId;
                 regenerateResponseButton.style.display = 'flex';
             }
-            async function regenerateGPTResult() {
+            async function regenerateAIResult() {
                 try {
-                    await getGPTResult(promptToRetry, uniqueIdToRetry)
+                    await getAIResult(promptToRetry, uniqueIdToRetry)
                     regenerateResponseButton.classList.add("loading");
                 } finally {
                     regenerateResponseButton.classList.remove("loading");
                 }
             }
-            async function getGPTResult(_promptToRetry, _uniqueIdToRetry) {
+            async function getAIResult(_promptToRetry, _uniqueIdToRetry) {
                 const prompt = _promptToRetry ?? promptInput.textContent;
                 if (isGeneratingResponse || !prompt) {
                     return;
@@ -281,10 +282,16 @@
                     clearSession();
                     counter.chatUniqueId = chatUniqueId;
                     // 恢复request会话
-                    const { request, response } = json;
+                    const { request, response, model } = json;
+                    let lastResp;
+                    if(model && model == "geminipro"){
+                        lastResp =  response.candidates[0].content.parts[0].text
+                    } else {
+                        lastResp = response.choices[0].message.content
+                    }
                     request.push({
-                        "role": response.choices[0].message.role,
-                        "content": response.choices[0].message.content
+                        "role": "assistant",
+                        "content": lastResp
                     });
                     request.forEach((message) => {
                         const { role, content } = message;
@@ -299,15 +306,14 @@
                 } catch (err) {
                 }
             }
-            
             clearButton.addEventListener('click', () => {
                 clearSession();
             });
             submitButton.addEventListener("click", () => {
-                getGPTResult();
+                getAIResult();
             });
             regenerateResponseButton.addEventListener("click", () => {
-                regenerateGPTResult();
+                regenerateAIResult();
             });
             sessionSelect.addEventListener("change", function() {
                 recoverSession();
