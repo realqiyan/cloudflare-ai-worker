@@ -58,7 +58,8 @@
             <div id="model-select-container" class="select-container">
                 <label for="model-select">Select model:</label>
                 <select id="model-select">
-                    <option value="gpt-4" selected>gpt-4</option>
+                    <option value="gpt-4-1106-preview" selected>gpt-4-1106-preview</option>
+                    <option value="gpt-4">gpt-4</option>
                     <option value="gpt-3.5-turbo-16k">gpt-3.5-turbo-16k</option>
                     <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
                 </select>
@@ -227,55 +228,40 @@
                     clearInterval(loadInterval);
                 }
             }
-            function saveLocalSession(sessionId) {
-                // 获取已保存的Session ID列表
-                var sessionList = localStorage.getItem("sessionList");
-                if (sessionList) {
-                    sessionList = JSON.parse(sessionList);
-                } else {
-                    sessionList = [];
-                }
-                // 检查Session ID是否已存在于列表中
-                if (sessionList.indexOf(sessionId) === -1) {
-                    // 添加新的Session ID到列表
-                    sessionList.unshift(sessionId);
-                }
-                // 保存更新后的Session ID列表到localStorage
-                localStorage.setItem("sessionList", JSON.stringify(sessionList));
-            }
             function addSesectOption(element, text, value){
                 var option = document.createElement("option");
                 option.text = text;
                 option.value = value;
                 element.add(option);
             }
-            function updateSessionSelect() {
-                var sessionSelect = document.getElementById("session-select");
-
-                // 清空下拉框选项
-                sessionSelect.innerHTML = "";
-                addSesectOption(sessionSelect, "-----------select-----------", "");
-
-                // 获取已保存的Session ID列表
-                var sessionList = localStorage.getItem("sessionList");
-                if (sessionList) {
-                    sessionList = JSON.parse(sessionList);
-                    // 生成下拉框选项
-                    for (var i = 0; i < sessionList.length; i++) {
-                        addSesectOption(sessionSelect, sessionList[i], sessionList[i]);
-                    }
-                }
-            }
             function saveConversation(json){
                 sessionStorage.setItem(counter.val, json)
                 counter.val += 1;
-                saveLocalSession(counter.chatUniqueId);
-                updateSessionSelect();
             }
             function clearSession(){
                 sessionStorage.clear();
                 counter = new Counter();
                 responseList.innerHTML = '';
+            }
+            async function historySession(){
+                try {
+                    var sessionSelect = document.getElementById("session-select");
+                    // 清空下拉框选项
+                    sessionSelect.innerHTML = "";
+                    addSesectOption(sessionSelect, "-----------select-----------", "");
+                    const chatResp = await fetch(API_URL + 'session/all', {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (!chatResp.ok) {
+                        return;
+                    } 
+                    const objects = await chatResp.json();
+                    objects.forEach((key) => {
+                        addSesectOption(sessionSelect, key, key);
+                    });
+                } catch (err) {
+                }
             }
             async function recoverSession(){
                 let chatUniqueId = sessionSelect.value;
@@ -330,7 +316,7 @@
                 promptInput.textContent =  this.value;
             });
             document.addEventListener("DOMContentLoaded", function(){
-                updateSessionSelect();
+                historySession();
                 promptInput.focus();
                 var prompts = [
                   {
@@ -342,44 +328,12 @@
                     "prompt": "请提取以下文章的主要要点。请用一段简短的话概括以下文章的主旨。可以用1-2句话总结以下文章的重点吗？请使用1-3句话概括以下文章的核心内容。您能从以下文章中提炼出最重要的信息吗？请简要概括。\r\n文章内容："
                   },
                   {
-                    "act": "充当 Linux 终端",
-                    "prompt": "我想让你充当 Linux 终端。我将输入命令，您将回复终端应显示的内容。我希望您只在一个唯一的代码块内回复终端输出，而不是其他任何内容。不要写解释。除非我指示您这样做，否则不要键入命令。当我需要用英语告诉你一些事情时，我会把文字放在中括号内[就像这样]。我的第一个命令是 pwd"
-                  },
-                  {
-                    "act": "充当英语翻译和改进者",
-                    "prompt": "我希望你能担任英语翻译、拼写校对和修辞改进的角色。我会用任何语言和你交流，你会识别语言，将其翻译并用更为优美和精炼的英语回答我。请将我简单的词汇和句子替换成更为优美和高雅的表达方式，确保意思不变，但使其更具文学性。请仅回答更正和改进的部分，不要写解释。我的第一句话是“how are you ?”，请翻译它。"
-                  },
-                  {
-                    "act": "充当英翻中",
+                    "act": "充当英翻",
                     "prompt": "下面我让你来充当翻译家，你的目标是把任何语言翻译成中文，请翻译时不要带翻译腔，而是要翻译得自然、流畅和地道，使用优美和高雅的表达方式。请翻译下面这句话：“how are you ?”"
                   },
                   {
                     "act": "充当英英词典(附中文解释)",
                     "prompt": "将英文单词转换为包括中文翻译、英文释义和一个例句的完整解释。请检查所有信息是否准确，并在回答时保持简洁，不需要任何其他反馈。第一个单词是“Hello”"
-                  },
-                  {
-                    "act": "充当旅游指南",
-                    "prompt": "我想让你做一个旅游指南。我会把我的位置写给你，你会推荐一个靠近我的位置的地方。在某些情况下，我还会告诉您我将访问的地方类型。您还会向我推荐靠近我的第一个位置的类似类型的地方。我的第一个建议请求是“我在上海，我只想参观博物馆。”"
-                  },
-                  {
-                    "act": "作为词源学家",
-                    "prompt": "我希望你充当词源学家。我给你一个词，你要研究那个词的来源，追根溯源。如果适用，您还应该提供有关该词的含义如何随时间变化的信息。我的第一个请求是“我想追溯‘披萨’这个词的起源。”"
-                  },
-                  {
-                    "act": "充当花哨的标题生成器",
-                    "prompt": "我想让你充当一个花哨的标题生成器。我会用逗号输入关键字，你会用花哨的标题回复。我的第一个关键字是 api、test、automation"
-                  },
-                  {
-                    "act": "担任 SVG 设计师",
-                    "prompt": "我希望你担任 SVG 设计师。我会要求你创建图像，你会为图像提供 SVG 代码，将代码转换为 base64 数据 url，然后给我一个仅包含引用该数据 url 的markdown图像标签的响应。不要将 markdown 放在代码块中。只发送markdown，所以没有文本。我的第一个请求是：给我一个红色圆圈的图像。"
-                  },
-                  {
-                    "act": "担任机器学习工程师",
-                    "prompt": "我想让你担任机器学习工程师。我会写一些机器学习的概念，你的工作就是用通俗易懂的术语来解释它们。这可能包括提供构建模型的分步说明、使用视觉效果演示各种技术，或建议在线资源以供进一步研究。我的第一个建议请求是“我有一个没有标签的数据集。我应该使用哪种机器学习算法？”"
-                  },
-                  {
-                    "act": "作为专业DBA",
-                    "prompt": "我要你扮演一个专业DBA。我将提供给你数据表结构以及我的需求，你的目标是告知我性能最优的可执行的SQL语句，并尽可能的向我解释这段SQL语句，如果有更好的优化建议也可以提出来。\r\n>\r\n> 我的数据表结构为:\r\n> ```mysql\r\n> CREATE TABLE `user` (\r\n> `id` int NOT NULL AUTO_INCREMENT,\r\n> `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '名字',\r\n> PRIMARY KEY (`id`)\r\n> ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';\r\n>```\r\n> 我的需求为:根据用户的名字查询用户的id\r\n"
                   },
                 ];
                 prompts.forEach(function(prompt) {
