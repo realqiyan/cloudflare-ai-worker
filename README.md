@@ -1,9 +1,10 @@
-# cloudflare-openai-web
-使用cloudflare+openai提供的API实现一个轻量的，随时随地可访问的chatgptweb，并且支持openai代理。
+# cloudflare-ai-worker
+使用cloudflare+openai/gemini提供的API实现一个轻量的，随时随地可访问的ai web，并且支持openai代理。
 
 ## 说明
 需要创建一个cloudflare的Worker，复制代码库的两个文件到Worker中，然后配置两个环境变量。
-* OPENAI_KEY 填写openai的token
+* OPENAI_KEY 填写openai的API key
+* GEMINI_API_KEY 填写gemini的API key
 * TOKEN 填写你访问服务是校验的"账号:密码"转BASE64后的编码
   * 例如：账号admin，密码123456，使用“admin:123456”通过base64编码得到的值是“YWRtaW46MTIzNDU2”
 * 【可选】R2 存储桶绑定变量ChatRecordR2（需要提前创建存储桶）
