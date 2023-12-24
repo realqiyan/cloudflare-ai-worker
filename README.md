@@ -6,6 +6,10 @@
 * OPENAI_KEY 填写openai的token
 * TOKEN 填写你访问服务是校验的"账号:密码"转BASE64后的编码
   * 例如：账号admin，密码123456，使用“admin:123456”通过base64编码得到的值是“YWRtaW46MTIzNDU2”
+* 【可选】R2 存储桶绑定变量ChatRecordR2（需要提前创建存储桶）
+  * 绑定R2后可以存储历史会话   
+![image](https://github.com/realqiyan/cloudflare-openai-web/assets/4379546/63400014-9f75-4709-a143-77d8be0e8c46)
+
 
 ### worker
 #### 创建worker
