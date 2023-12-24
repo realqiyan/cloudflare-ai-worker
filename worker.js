@@ -40,18 +40,53 @@ async function openAI(request, env) {
   return new Response(resp['choices'][0]['message']['content'].toString());
 }
 
+function getYearMonth(date) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1; 
+  return `${year}${month < 10 ? '0' : ''}${month}`;
+}
+
+function getQueryMonth() {
+  const currentDate = new Date();
+  const currentYearMonth = getYearMonth(currentDate);
+  // 设置为上个月的同一天
+  currentDate.setMonth(currentDate.getMonth() - 1);
+  const previousYearMonth = getYearMonth(currentDate);
+  return [
+    currentYearMonth,
+    previousYearMonth
+  ];
+}
+
+
 // session
 async function session(request, env) {
   const url = new URL(request.url);
   const chatUniqueId = url.pathname.slice("/session/".length);
   if (env.ChatRecordR2){
     if (chatUniqueId == "all"){
-      const queryOptions = {
-        limit: 500,
-        prefix: "id-",
+      const querys = getQueryMonth();
+      const objects = [];
+      for (let index = 0; index < querys.length; index++) {
+        const queryOptions = {
+          limit: 100,
+          prefix: "id-"+querys[index],
+        }
+        const quertRet = await env.ChatRecordR2.list(queryOptions);
+        objects.push(...quertRet.objects);
+        
       }
-      const objects = await env.ChatRecordR2.list(queryOptions);
-      return new Response(JSON.stringify(objects), {
+      var keys = objects.map(item => item.key);
+      keys.sort((a, b) => {
+        if (a > b) {
+          return -1;
+        }
+        if (a < b) {
+          return 1;
+        }
+        return 0;
+      });
+      return new Response(JSON.stringify(keys), {
         headers: { 'Content-Type': 'application/json' }
       });
     }
