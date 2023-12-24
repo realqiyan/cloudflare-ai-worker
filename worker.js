@@ -2,6 +2,7 @@ import template from './template.html';
 
 // 检查登录
 function checkLogin(request, env) {
+  // if(true) return true;
   const auth = request.headers.get('Authorization');
   if (!auth || auth !== `Basic ${env.TOKEN}`) {
     return false;
@@ -10,9 +11,7 @@ function checkLogin(request, env) {
 }
 
 // openai web服务
-async function openAI(request, env) {
-  const body = await request.text();
-  const reqJson = JSON.parse(body);
+async function openAI(requestJson, env) {
   const apiURL = 'https://api.openai.com/v1/chat/completions';
   const response = await fetch(apiURL, {
     method: 'POST',
@@ -21,8 +20,8 @@ async function openAI(request, env) {
       'Authorization': `Bearer ${env.OPENAI_KEY}`
     },
     body: JSON.stringify({
-      messages: reqJson.messages,
-      model: reqJson.model,
+      messages: requestJson.messages,
+      model: requestJson.model,
       temperature: 0.1
     })
   });
@@ -31,13 +30,60 @@ async function openAI(request, env) {
   }
   const resp = await response.json();
   const chatSession = {
-    "request":reqJson.messages,
+    "model":requestJson.model,
+    "request":requestJson.messages,
     "response":resp
   };
   if (env.ChatRecordR2){
-    await env.ChatRecordR2.put(reqJson.chatUniqueId, JSON.stringify(chatSession));
+    await env.ChatRecordR2.put(requestJson.chatUniqueId, JSON.stringify(chatSession));
   }
   return new Response(resp['choices'][0]['message']['content'].toString());
+}
+// 原始数组
+const originalArray = [{"role": "user", "content": "hello"}];
+
+// openai格式消息转换函数
+function transform(messages) {
+  return messages.map(item => {
+    // 根据role值进行转换
+    const roleMapping = {
+      "user": "user",
+      "assistant": "model"
+    };
+    const newRole = roleMapping[item.role] || item.role;
+    // 构建新的对象
+    return {
+      "role": newRole,
+      "parts": [{"text": item.content}]
+    };
+  });
+}
+//请求gemini服务
+async function gemini(requestJson, env) {
+  const messages = requestJson.messages;
+  const apiURL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key='+env.GEMINI_API_KEY;
+  const response = await fetch(apiURL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({"contents":transform(messages)})
+  });
+  if (!response.ok) {
+    return new Response(await response.text(), { status: 400});
+  }
+  const resp = await response.json();
+
+  const chatSession = {
+    "model":requestJson.model,
+    "request":requestJson.messages,
+    "response":resp
+  };
+  if (env.ChatRecordR2){
+    await env.ChatRecordR2.put(requestJson.chatUniqueId, JSON.stringify(chatSession));
+  }
+
+  return new Response(resp.candidates[0].content.parts[0].text);
 }
 
 function getYearMonth(date) {
@@ -58,11 +104,16 @@ function getQueryMonth() {
   ];
 }
 
-
 // session
 async function session(request, env) {
+
   const url = new URL(request.url);
   const chatUniqueId = url.pathname.slice("/session/".length);
+  if(chatUniqueId == "all" && !env.ChatRecordR2){
+    return new Response('[]', {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
   if (env.ChatRecordR2){
     if (chatUniqueId == "all"){
       const querys = getQueryMonth();
@@ -74,7 +125,6 @@ async function session(request, env) {
         }
         const quertRet = await env.ChatRecordR2.list(queryOptions);
         objects.push(...quertRet.objects);
-        
       }
       var keys = objects.map(item => item.key);
       keys.sort((a, b) => {
@@ -108,27 +158,12 @@ async function home(request, env) {
   });
 }
 
-// openai api代理
-async function proxy(request, env) {
-  const url = new URL(request.url);
-  const headers_Origin = request.headers.get("Access-Control-Allow-Origin") || "*"
-  const modifiedRequest = new Request('https://api.openai.com' + url.pathname + url.search, {
-      method: request.method,
-      headers: request.headers,
-      body: request.body,
-  });
-  const response = await fetch(modifiedRequest);
-  const modifiedResponse = new Response(response.body, response);
-  modifiedResponse.headers.set('Access-Control-Allow-Origin', headers_Origin);
-  return modifiedResponse;
-}
-
 export default {
   async fetch(request, env) {
-    // proxy
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/v1")) {
-      return proxy(request, env);
+    //调试时不弹出登录框
+    if (url.pathname.startsWith("/helloworld")) {
+      return new Response("HelloWorld");
     }
 
     // 安全检查
@@ -141,7 +176,12 @@ export default {
 
     // 处理api请求
     if (url.pathname.startsWith("/api")) {
-      return openAI(request, env);
+      const body = await request.text();
+      const requestJson = JSON.parse(body);
+      if("geminipro" == requestJson.model){
+        return gemini(requestJson, env);
+      }
+      return openAI(requestJson, env);
     }
     
     // 处理session请求
